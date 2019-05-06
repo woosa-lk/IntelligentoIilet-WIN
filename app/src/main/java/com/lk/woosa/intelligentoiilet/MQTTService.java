@@ -196,30 +196,26 @@ public class MQTTService extends Service {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
             //Activity里获取数据
-            publish(data.readString());
+            String cmd = data.readString();
+            switch (cmd) {
+                case "CMD_GET_INIT_DATA":
+                    String data_init = "{\"cmd\":\""+cmd+"\"}";
+                    publish(data_init);
+                    break;
+
+                case "CMD_SET_BIND_DEV":
+                    String dev_id = data.readString();
+                    String dev_floor = data.readString();
+                    String dev_sex = data.readString();
+                    String data_bind = "{\"cmd\":\""+cmd+"\",\"devid\":\""+dev_id+"\",\"floor\":\""+dev_floor+"\",\"sex\":\""+dev_sex+"\"}";
+                    publish(data_bind);
+                    break;
+            }
+            //publish(data.readString());
             //reply.writeString("data");
             //reply.writeInt(1990);
 
             return super.onTransact(code, data, reply, flags);
         }
-    }
-
-    public  void toCreateNotification(String message){
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 1, new Intent(this,MQTTService.class), PendingIntent.FLAG_UPDATE_CURRENT);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);//3、创建一个通知，属性太多，使用构造器模式
-
-        Notification notification = builder
-                .setTicker("测试标题")
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("")
-                .setContentText(message)
-                .setContentInfo("")
-                .setContentIntent(pendingIntent)//点击后才触发的意图，“挂起的”意图
-                .setAutoCancel(true)        //设置点击之后notification消失
-                .build();
-        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        startForeground(0, notification);
-        notificationManager.notify(0, notification);
-
     }
 }

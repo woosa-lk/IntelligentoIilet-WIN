@@ -7,7 +7,7 @@
         app:showAsAction="ifRoom" />
 
     <item android:id="@+id/add"
-        android:title="增加" />
+        android:title="@string/menu_check_dev" />
     <item android:id="@+id/delete"
-        android:title="删除" />
+        android:title="@string/menu_check_his" />
 </menu>
