@@ -23,6 +23,8 @@ import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 public class MQTTService extends Service {
@@ -30,23 +32,25 @@ public class MQTTService extends Service {
 
     private static MqttAndroidClient client;
     private MqttConnectOptions conOpt;
+    private static String app_sn = android.os.Build.SERIAL;
 
     private String host = "tcp://120.79.44.99:1883";
     private String userName = "admin";
     private String passWord = "public";
-    private static String myTopic = "device";
+    private static String devTopic_sub = "app/device";
+    private static String sqlTopic_pub = "app/sql/"+app_sn+"/rx";
+    private static String sqlTopic_sub = "app/sql/"+app_sn+"/tx";
     private String clientId = "mqtttest";
     private IGetMessageCallBack IGetMessageCallBack;
 
     @Override
     public void onCreate() {
-        super.onCreate();
-        Log.e(getClass().getName(), "onCreate");
         init();
+        super.onCreate();
     }
 
     public void publish(String msg){
-        String topic = "sql";
+        String topic = sqlTopic_pub;
         Integer qos = 0;
         Boolean retained = false;
         try {
@@ -73,12 +77,12 @@ public class MQTTService extends Service {
 
         boolean doConnect = true;
         String message = "{\"terminal_uid\":\"" + clientId + "\"}";
-        String topic = myTopic;
         Integer qos = 0;
         Boolean retained = false;
-        if ((!message.equals("")) || (!topic.equals(""))) {
+        if ((!message.equals("")) || (!devTopic_sub.equals("") || (!sqlTopic_sub.equals("")))) {
             try {
-                conOpt.setWill(topic, message.getBytes(), qos.intValue(), retained.booleanValue());
+                conOpt.setWill(devTopic_sub, message.getBytes(), qos.intValue(), retained.booleanValue());
+                conOpt.setWill(sqlTopic_sub, message.getBytes(), qos.intValue(), retained.booleanValue());
             } catch (Exception e) {
                 Log.i(TAG, "Exception Occured", e);
                 doConnect = false;
@@ -96,6 +100,7 @@ public class MQTTService extends Service {
         stopSelf();
         try {
             client.disconnect();
+            client.unregisterResources();
         } catch (MqttException e) {
             e.printStackTrace();
         }
@@ -119,11 +124,19 @@ public class MQTTService extends Service {
 
         @Override
         public void onSuccess(IMqttToken arg0) {
-            Log.i(TAG, "连接成功 ");
+            Log.e(getClass().getName(), "连接成功");
             try {
-                // 订阅myTopic话题
-                client.subscribe(myTopic,1);
+                // 订阅Topic话题
+                client.subscribe(devTopic_sub,1);
+                client.subscribe(sqlTopic_sub,1);
             } catch (MqttException e) {
+                e.printStackTrace();
+            }
+            try {
+                JSONObject obj_mqtt_connect = new JSONObject();
+                obj_mqtt_connect.put("cmd", "MQTT_CONNECT_SUCCESS");
+                IGetMessageCallBack.setMessage(obj_mqtt_connect.toString());
+            } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
@@ -142,13 +155,13 @@ public class MQTTService extends Service {
         @Override
         public void messageArrived(String topic, MqttMessage message) throws Exception {
 
-            String str1 = new String(message.getPayload());
+            String str = new String(message.getPayload());
             //To do
             if (IGetMessageCallBack != null){
-                IGetMessageCallBack.setMessage(str1);
+                IGetMessageCallBack.setMessage(str);
             }
             String str2 = topic + ";qos:" + message.getQos() + ";retained:" + message.isRetained();
-            Log.i(TAG, "messageArrived:" + str1);
+            Log.i(TAG, "messageArrived:" + str);
             Log.i(TAG, str2);
         }
 
@@ -180,7 +193,6 @@ public class MQTTService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         // TODO: Return the communication channel to the service.
-        Log.e(getClass().getName(), "onBind");
         return new CustomBinder();
     }
 
@@ -199,21 +211,43 @@ public class MQTTService extends Service {
             String cmd = data.readString();
             switch (cmd) {
                 case "CMD_GET_INIT_DATA":
-                    String data_init = "{\"cmd\":\""+cmd+"\"}";
-                    publish(data_init);
+                    JSONObject obj_init_data = new JSONObject();
+                    try {
+                        obj_init_data.put("cmd", cmd);
+                        obj_init_data.put("sn", app_sn);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    publish(obj_init_data.toString());
                     break;
 
                 case "CMD_SET_BIND_DEV":
                     String dev_id = data.readString();
                     String dev_floor = data.readString();
                     String dev_sex = data.readString();
-                    String data_bind = "{\"cmd\":\""+cmd+"\",\"devid\":\""+dev_id+"\",\"floor\":\""+dev_floor+"\",\"sex\":\""+dev_sex+"\"}";
-                    publish(data_bind);
+                    JSONObject obj_bind_dev = new JSONObject();
+                    try {
+                        obj_bind_dev.put("cmd", cmd);
+                        obj_bind_dev.put("sn", app_sn);
+                        obj_bind_dev.put("devid", dev_id);
+                        obj_bind_dev.put("floor", dev_floor);
+                        obj_bind_dev.put("sex", dev_sex);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    publish(obj_bind_dev.toString());
+                    break;
+                case "CMD_GET_SYS_INIT_DATA":
+                    JSONObject obj_sys_init_data = new JSONObject();
+                    try {
+                        obj_sys_init_data.put("cmd", cmd);
+                        obj_sys_init_data.put("sn", app_sn);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    publish(obj_sys_init_data.toString());
                     break;
             }
-            //publish(data.readString());
-            //reply.writeString("data");
-            //reply.writeInt(1990);
 
             return super.onTransact(code, data, reply, flags);
         }

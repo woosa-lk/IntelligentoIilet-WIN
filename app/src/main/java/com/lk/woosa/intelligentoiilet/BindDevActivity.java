@@ -41,7 +41,7 @@ public class BindDevActivity extends AppCompatActivity {
                 intent_list.putExtra("dev_sex", sp_sex.getSelectedItem().toString());
                 setResult(RESULT_CODE, intent_list);
                 finish();
-                Toast.makeText(getApplicationContext(), "成功绑定设备", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "成功绑定设备"+text_devid.getText(), Toast.LENGTH_SHORT).show();
             }
         });
     }

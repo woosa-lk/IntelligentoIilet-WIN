@@ -14,6 +14,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +32,11 @@ public class MyAdapterActivity extends ListActivity{
         super.onCreate(savedInstanceState);
 
         //获取数据
-        list=getData();
+        try {
+            list=getData();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
 
         //创建自定义的Adapter对象--内部数据与ListView各项的对应关系在自定义的Adapter中实现
         adapter = new MyAdapter(this);
@@ -38,29 +46,41 @@ public class MyAdapterActivity extends ListActivity{
     }
 
     //获取List数据对象
-    public List<Map<String,Object>> getData(){
+    public List<Map<String,Object>> getData() throws JSONException {
+        String floor_data;
+        floor_data = getIntent().getExtras().getString("data");
         //List对象
         List<Map<String,Object>> list=new ArrayList<Map<String,Object>>();
 
         //List中存放的Map对象,由多个<键,值>对构成--一个Map对象对应ListView中的一行
         Map map;
-        int floor_num;
-        int floor_max_num = 22;
-        for (floor_num = 1; floor_num <= floor_max_num; floor_num++) {
-            String floor = floor_num + "F";
+        JSONObject root = new JSONObject(floor_data);
+        JSONArray data = root.getJSONArray("data");
+
+        for (int num = 0; num < data.length(); num++)
+        {
+            JSONObject msg = data.getJSONObject(num);
             map = new HashMap<String,Object>();
-            map.put("title", floor);
+            map.put("title", msg.getString("floor"));
             map.put("man", "男");
             map.put("woman", "女");
-            map.put("occupy", "占用数");
-            map.put("idle", "空闲数");
-            map.put("occupy_man", "0");
-            map.put("idle_man", "0");
-            map.put("occupy_woman", "0");
-            map.put("idle_woman", "0");
+            map.put("occupy", "占用坑位");
+            map.put("idle", "剩余坑位");
+            map.put("occupy_man", msg.getString("busy_man"));
+            map.put("idle_man", msg.getString("free_man"));
+            map.put("occupy_woman", msg.getString("busy_woman"));
+            map.put("idle_woman", msg.getString("free_woman"));
             map.put("img", R.drawable.toilet);
-            map.put("img_man_status", R.drawable.busy);
-            map.put("img_woman_status", R.drawable.busy);
+            if (msg.getString("free_man").equals("0")){
+                map.put("img_man_status", R.drawable.busy);
+            } else {
+                map.put("img_man_status", R.drawable.idle);
+            }
+            if (msg.getString("free_woman").equals("0")){
+                map.put("img_woman_status", R.drawable.busy);
+            } else {
+                map.put("img_woman_status", R.drawable.idle);
+            }
             list.add(map);
         }
 

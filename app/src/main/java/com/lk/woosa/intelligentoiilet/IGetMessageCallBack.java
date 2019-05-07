@@ -1,5 +1,7 @@
 package com.lk.woosa.intelligentoiilet;
 
+import org.json.JSONException;
+
 public interface IGetMessageCallBack {
-    public void setMessage(String message);
+        void setMessage(String message) throws JSONException;
 }

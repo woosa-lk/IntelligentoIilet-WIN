@@ -1,12 +1,9 @@
 package com.lk.woosa.intelligentoiilet;
 
-import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.nfc.Tag;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
@@ -18,11 +15,10 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.Button;
 import android.widget.ListView;
-import android.widget.TextView;
-import android.widget.Toast;
-
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +29,8 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
 
     private List<myBean> myBeanList = new ArrayList<>();
     private viewAdapter adapter;
+
+    private String floor_data;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,17 +50,37 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                //TextView text = findViewById(R.id.text_dev_id);
                 Intent intent_list=new Intent();
                 intent_list.setClass(MainActivity.this, BindDevActivity.class);
                 intent_list.putExtra("dev_id", myBeanList.get(position).getText());
                 intent_list.putExtra("pos_id", position);
-
-                Toast.makeText(getApplicationContext(), myBeanList.get(position).getText(), Toast.LENGTH_SHORT).show();
-
                 startActivityForResult(intent_list, REQUEST_CODE);
             }
         });
+    }
+
+    private void get_system_init_data()
+    {
+        Parcel data=Parcel.obtain();
+        data.writeString("CMD_GET_SYS_INIT_DATA");
+        Parcel reply=Parcel.obtain();
+        try {
+            binder.transact(IBinder.LAST_CALL_TRANSACTION, data, reply, 0);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void get_system_bind_dev()
+    {
+        Parcel data=Parcel.obtain();
+        data.writeString("CMD_GET_INIT_DATA");
+        Parcel reply=Parcel.obtain();
+        try {
+            binder.transact(IBinder.LAST_CALL_TRANSACTION, data, reply, 0);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -75,13 +93,9 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
             String strDevFloor = bundle.getString("dev_floor");
             String strDevSex = bundle.getString("dev_sex");
             int pos_id = bundle.getInt("pos_id");
-            Log.i("onActivityResult: ",strDevID);
-            Log.i("onActivityResult: ",strDevFloor);
-            Log.i("onActivityResult: ",strDevSex);
 
             myBeanList.remove(pos_id);
             adapter.notifyDataSetChanged();
-
 
             Parcel data_bind=Parcel.obtain();
             data_bind.writeString("CMD_SET_BIND_DEV");
@@ -92,7 +106,6 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
             try {
                 binder.transact(IBinder.LAST_CALL_TRANSACTION, data_bind, reply, 0);
             } catch (RemoteException e) {
-                //TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
@@ -127,12 +140,28 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
 
     //mqtt service
     @Override
-    public void setMessage(String message) {
-        ListView listView = findViewById(R.id.listview);
-        myBean bean1 = new myBean(message,R.drawable.bind);
-        myBeanList.add(bean1);
-        adapter = new viewAdapter(MainActivity.this,R.layout.view_adapter,myBeanList);
-        listView.setAdapter(adapter);
+    public void setMessage(String message) throws JSONException {
+        JSONObject cmd = new JSONObject(message);
+        switch (cmd.getString("cmd")) {
+            case "MQTT_CONNECT_SUCCESS":
+                get_system_init_data();
+                get_system_bind_dev();
+                break;
+            case "CMD_RET_INIT_DATA":
+                myBeanList.clear();
+                JSONArray dev_id = cmd.getJSONArray("dev_id");
+                ListView listView = findViewById(R.id.listview);
+                for (int dev_num = 0; dev_num < dev_id.length(); dev_num++) {
+                    myBean bean = new myBean((String) dev_id.get(dev_num), R.drawable.bind);
+                    myBeanList.add(bean);
+                }
+                adapter = new viewAdapter(MainActivity.this, R.layout.view_adapter, myBeanList);
+                listView.setAdapter(adapter);
+                break;
+            case "CMD_RET_SYS_INIT_DATA":
+                floor_data = message;
+                break;
+        }
     }
 
     @Override
@@ -145,30 +174,15 @@ public class MainActivity extends AppCompatActivity implements IGetMessageCallBa
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
-            case R.id.manage:
-                myBeanList.clear();
-
-                Parcel data=Parcel.obtain();
-                data.writeString("CMD_GET_INIT_DATA");
-                Parcel reply=Parcel.obtain();
-                try {
-                    binder.transact(IBinder.LAST_CALL_TRANSACTION, data, reply, 0);
-                } catch (RemoteException e) {
-                    //TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-
-                //从service里读数据
-                //Log.i("Main<<<<<<<<",reply.readString());
-                //Log.i("Main<<<<<<<<<",reply.readInt()+"");
-                break;
-            case R.id.add:
+            case R.id.scan_dev:
                 Intent intent_list=new Intent();
                 intent_list.setClass(MainActivity.this, MyAdapterActivity.class);
+                intent_list.putExtra("data", floor_data);
                 startActivity(intent_list);
                 break;
+            case R.id.check:
+                break;
             case R.id.delete:
-
                 break;
             default:
                 break;
